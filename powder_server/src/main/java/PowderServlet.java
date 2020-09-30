@@ -29,7 +29,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             // TODO: process url params in `urlParts`
             res.getWriter().write("Post Request Received!");
         }
-
+        return;
     }
 
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -46,36 +46,60 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             return;
         }
 
+        // verify url for correct api procedures
         String[] urlParts = urlPath.split("/");
-        if (!isUrlValidGet(urlParts)) {
-            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-
-            // for debug
-//            res.getWriter().write(Arrays.toString(urlParts));
-        } else {
-            res.setStatus(HttpServletResponse.SC_OK);
-            // do any sophisticated processing with urlParts which contains all the url params
-            // TODO: process url params in `urlParts`
-            res.getWriter().write("It works!");
+        if (urlParts[1].equals("resort")) {
+            if (urlParts.length == 4
+                    && urlParts[2].equals("day")
+                    && urlParts[3].equals("top10vert")) {
+                 urlValidResponse(res);
+                 return;
+            }
         }
+        else if (urlParts[1].equals("skiers")) {
+            if (urlParts.length == 4
+//                    && urlParts[2] in skierIDs
+                    && urlParts[3].equals("vertical")
+            ) {
+                urlValidResponse(res);
+                return;
+            }
+            else if (urlParts.length == 7
+//                    && urlParts[2] in resortIDs
+                    && urlParts[3].equals("days")
+//                    && urlParts[4] in dayIDs
+                    && urlParts[5].equals("skiers")
+//                    && urlParts[6] in skiersIDs
+            ) {
+                urlValidResponse(res);
+                return;
+            }
+        }
+
+        // default to invalid url
+        res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        return;
+
+//            // for debug
+//            res.getWriter().write(Arrays.toString(urlParts));
+
     }
 
     private boolean isUrlValidPost(String[] urlParts) {
         // TODO: validate the request url path according to the API spec
-        if (urlParts.length == 4
-                && urlParts[1].equals("resort")
-                && urlParts[2].equals("day")
-                && urlParts[3].equals("top10vert")) {
+        if (urlParts.length == 3
+                && urlParts[1].equals("skiers")
+                && urlParts[2].equals("liftrides")) {
             return true;
         }
         return false;
     }
 
-    private boolean isUrlValidGet(String[] urlParts) {
-        // TODO: validate the request url path according to the API spec
-        if (urlParts.length > 1 && urlParts[1].equals("skiers")) {
-            return true;
-        }
-        return false;
+    private void urlValidResponse(HttpServletResponse res) throws IOException {
+        res.setStatus(HttpServletResponse.SC_OK);
+        // do any sophisticated processing with urlParts which contains all the url params
+        // TODO: process url params in `urlParts`
+        res.getWriter().write("It works!");
+        return;
     }
 }
