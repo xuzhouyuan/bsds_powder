@@ -1,8 +1,8 @@
 # swagger-java-client
 
 Ski Data API for NEU Seattle distributed systems course
-- API version: 1.11
-  - Build date: 2020-09-21T22:22:48.608Z[GMT]
+- API version: 1.13
+  - Build date: 2020-09-30T19:18:25.114Z[GMT]
 
 An API for an emulation of skier managment system for RFID tagged lift tickets. Basis for CS6650 Assignments for 2019
 
@@ -74,21 +74,23 @@ Please follow the [installation](#installation) instruction and execute the foll
 import io.swagger.client.*;
 import io.swagger.client.auth.*;
 import io.swagger.client.model.*;
-import io.swagger.client.api.ReturnTopTenSkierVerticalTotalsForTheSpecifiedResortdayApi;
+import io.swagger.client.api.ResortsApi;
 
 import java.io.File;
 import java.util.*;
 
-public class ReturnTopTenSkierVerticalTotalsForTheSpecifiedResortdayApiExample {
+public class ResortsApiExample {
 
     public static void main(String[] args) {
         
-        ReturnTopTenSkierVerticalTotalsForTheSpecifiedResortdayApi apiInstance = new ReturnTopTenSkierVerticalTotalsForTheSpecifiedResortdayApi();
+        ResortsApi apiInstance = new ResortsApi();
+        List<String> resort = Arrays.asList("resort_example"); // List<String> | resort to query by
+        List<String> dayID = Arrays.asList("dayID_example"); // List<String> | day number in the season
         try {
-            TopTen result = apiInstance.getTopTenVert();
+            TopTen result = apiInstance.getTopTenVert(resort, dayID);
             System.out.println(result);
         } catch (ApiException e) {
-            System.err.println("Exception when calling ReturnTopTenSkierVerticalTotalsForTheSpecifiedResortdayApi#getTopTenVert");
+            System.err.println("Exception when calling ResortsApi#getTopTenVert");
             e.printStackTrace();
         }
     }
@@ -101,7 +103,7 @@ All URIs are relative to */*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
-*ReturnTopTenSkierVerticalTotalsForTheSpecifiedResortdayApi* | [**getTopTenVert**](docs/ReturnTopTenSkierVerticalTotalsForTheSpecifiedResortdayApi.md#getTopTenVert) | **GET** /resort/day/top10vert | get the top 10 skier vertical totals for this day
+*ResortsApi* | [**getTopTenVert**](docs/ResortsApi.md#getTopTenVert) | **GET** /resort/day/top10vert | get the top 10 skier vertical totals for this day
 *SkiersApi* | [**getSkierDayVertical**](docs/SkiersApi.md#getSkierDayVertical) | **GET** /skiers/{resortID}/days/{dayID}/skiers/{skierID} | 
 *SkiersApi* | [**getSkierResortTotals**](docs/SkiersApi.md#getSkierResortTotals) | **GET** /skiers/{skierID}/vertical | get the total vertical for the skier for the specified resort
 *SkiersApi* | [**writeNewLiftRide**](docs/SkiersApi.md#writeNewLiftRide) | **POST** /skiers/liftrides | write a new lift ride for the skier

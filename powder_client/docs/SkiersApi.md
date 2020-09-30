@@ -10,7 +10,7 @@ Method | HTTP request | Description
 
 <a name="getSkierDayVertical"></a>
 # **getSkierDayVertical**
-> Integer getSkierDayVertical(resortID, dayID, skierID)
+> SkierVertical getSkierDayVertical(resortID, dayID, skierID)
 
 
 
@@ -28,7 +28,7 @@ String resortID = "resortID_example"; // String | ID of the resort the skier is 
 String dayID = "dayID_example"; // String | ID number of ski day in the ski season
 String skierID = "skierID_example"; // String | ID of the skier riding the lift
 try {
-    Integer result = apiInstance.getSkierDayVertical(resortID, dayID, skierID);
+    SkierVertical result = apiInstance.getSkierDayVertical(resortID, dayID, skierID);
     System.out.println(result);
 } catch (ApiException e) {
     System.err.println("Exception when calling SkiersApi#getSkierDayVertical");
@@ -46,7 +46,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-**Integer**
+[**SkierVertical**](SkierVertical.md)
 
 ### Authorization
 
