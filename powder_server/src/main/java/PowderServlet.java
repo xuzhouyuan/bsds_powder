@@ -45,14 +45,24 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             return;
         }
 
-        // verify url for correct api procedures
         String[] urlParts = urlPath.split("/");
+        if (urlParts.length == 0) {
+            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            res.getWriter().write("missing parameters");
+            return;
+        }
+
         if (urlParts[1].equals("resort")) {
             if (urlParts.length == 4
                     && urlParts[2].equals("day")
-                    && urlParts[3].equals("top10vert")) {
-                 urlValidResponse(res);
-                 return;
+                    && urlParts[3].equals("top10vert")
+            ) {
+                urlValidResponse(res);
+                String queryString = req.getQueryString();
+                // TODO: process qs
+                // res.getWriter().write(queryString);
+
+                return;
             }
         }
         else if (urlParts[1].equals("skiers")) {
@@ -97,8 +107,8 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
     private void urlValidResponse(HttpServletResponse res) throws IOException {
         res.setStatus(HttpServletResponse.SC_OK);
         // do any sophisticated processing with urlParts which contains all the url params
-        // TODO: process url params in `urlParts`
-        res.getWriter().write("It works!");
+        // TODO: ?
+        // res.getWriter().write("It works!");
         return;
     }
 }
