@@ -25,10 +25,11 @@ target
 build
 
 # logging files
-**/log
-**/logs
+*/log
+*/logs
 log
 logs
+*.log
 
 # Linux trash folder which might appear on any partition or disk
 .Trash-*

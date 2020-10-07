@@ -7,6 +7,7 @@ import io.swagger.client.model.SkierVertical;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -23,12 +24,15 @@ public class LoadGenerator implements Runnable{
     private boolean coolDown = false;
 
     private static Logger logger = LogManager.getLogger(PowderClient.class);
+    private List<RequestCount> requestCounter;
+    private RequestCount requestCount;
 
-    public LoadGenerator(String serverPath, List<CountDownLatch> latches, int numThreads,
-                         String resortID, int dayId, int numLifts, int startSkierId, int endSkierId,
-                         int startMinute, int endMinute) {
+    public LoadGenerator(String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
+                         int numThreads,String resortID, int dayId, int numLifts,
+                         int startSkierId, int endSkierId, int startMinute, int endMinute) {
         this.serverPath = serverPath;
         this.latches = latches;
+        this.requestCount = requestCount;
         this.numThreads = numThreads;
         this.resortID = resortID;
         this.dayId = Integer.toString(dayId);
@@ -37,12 +41,14 @@ public class LoadGenerator implements Runnable{
         this.endSkierId = endSkierId;
         this.startMinute = startMinute;
         this.endMinute = endMinute;
+        requestCounter = new ArrayList<>(numThreads);
     }
 
-    public LoadGenerator(String serverPath, List<CountDownLatch> latches, int numThreads,
-                         String resortID, int dayId, int numLifts, int startSkierId, int endSkierId,
-                         int startMinute, int endMinute, boolean coolDown) {
-        this(serverPath, latches, numThreads, resortID, dayId, numLifts,
+    public LoadGenerator(String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
+                         int numThreads, String resortID, int dayId, int numLifts,
+                         int startSkierId, int endSkierId, int startMinute, int endMinute,
+                         boolean coolDown) {
+        this(serverPath, latches, requestCount, numThreads, resortID, dayId, numLifts,
                 startSkierId, endSkierId, startMinute, endMinute);
         this.coolDown = coolDown;
     }
@@ -53,23 +59,37 @@ public class LoadGenerator implements Runnable{
         if (coolDown) {
             logger.info("Starting generate loads with LoadWorkerCoolDown");
             for (int i = 0; i < numThreads; i++) {
+                RequestCount requestCount = new RequestCount();
+                requestCounter.add(requestCount);
                 // calculate skierId range for different workers
                 int workerStartSkierId = startSkierId + i * (numSkiers / numThreads);
                 int workerEndSkierId = startSkierId + (i + 1) * (numSkiers / numThreads);
-                LoadWorkerCoolDown worker = new LoadWorkerCoolDown(latches, serverPath, resortID,
-                        dayId, numLifts, workerStartSkierId, workerEndSkierId, startMinute, endMinute);
+                LoadWorkerCoolDown worker = new LoadWorkerCoolDown(latches, serverPath, requestCount,
+                        resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
+                        startMinute, endMinute);
                 new Thread(worker).start();
             }
         } else {
             logger.info("Starting generate loads with LoadWorker");
             for (int i = 0; i < numThreads; i++) {
+                RequestCount requestCount = new RequestCount();
+                requestCounter.add(requestCount);
                 // calculate skierId range for different workers
                 int workerStartSkierId = startSkierId + i * (numSkiers / numThreads);
                 int workerEndSkierId = startSkierId + (i + 1) * (numSkiers / numThreads);
-                LoadWorker worker = new LoadWorker(latches, serverPath, resortID,
-                        dayId, numLifts, startSkierId, endSkierId, startMinute, endMinute);
+                LoadWorker worker = new LoadWorker(latches, serverPath, requestCount,
+                        resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
+                        startMinute, endMinute);
                 new Thread(worker).start();
             }
+        }
+    }
+
+    public void sumRequestCounter() {
+        for (int i = 0; i < requestCounter.size(); i++) {
+            RequestCount workerCount = requestCounter.get(i);
+            requestCount.success += workerCount.success;
+            requestCount.failure += workerCount.failure;
         }
     }
 }
@@ -77,6 +97,7 @@ public class LoadGenerator implements Runnable{
 class LoadWorker implements Runnable {
     protected List<CountDownLatch> latches;
     protected String serverPath;
+    protected RequestCount requestCount;
     protected Random rand;
 
     protected String resortId;
@@ -90,10 +111,12 @@ class LoadWorker implements Runnable {
 
     protected static Logger logger = LogManager.getLogger(PowderClient.class);
 
-    public LoadWorker(List<CountDownLatch> latches, String serverPath, String resortId, String dayId,
-                      int numLifts, int startSkierId, int endSkierId, int startMinute, int endMinute) {
+    public LoadWorker(List<CountDownLatch> latches, String serverPath, RequestCount requestCount,
+                      String resortId, String dayId, int numLifts,
+                      int startSkierId, int endSkierId, int startMinute, int endMinute) {
         this.latches = latches;
         this.serverPath = serverPath;
+        this.requestCount = requestCount;
         this.resortId = resortId;
         this.dayId = dayId;
         this.numLifts = numLifts;
@@ -110,14 +133,16 @@ class LoadWorker implements Runnable {
         apiClient.setBasePath(serverPath);
         SkiersApi api = new SkiersApi(apiClient);
         logger.info(this.getClass().getName() + "starting to create loads.");
-        generatePOSTs(api);
-        generateGETs(api);
+        generatePOSTs(api, requestCount);
+        generateGETs(api, requestCount);
         for (int i = 0; i < latches.size(); i++) {
             latches.get(i).countDown();
         }
     }
 
-    protected void generatePOSTs(SkiersApi api) {
+    protected void generatePOSTs(SkiersApi api, RequestCount requestCount) {
+        int successCount = 0;
+        int failureCount = 0;
         for (int i = 0; i < numPOST; i++) {
             try {
                 int skierId = startSkierId + rand.nextInt(endSkierId-startSkierId);
@@ -129,15 +154,22 @@ class LoadWorker implements Runnable {
                 if (responseCode.startsWith("4") || responseCode.startsWith("5")) {
                     logger.error(this.getClass().getName() + " received status code " + responseCode +
                             " when calling POST writeNewLiftRide");
+                    failureCount++;
+                } else {
+                    successCount++;
                 }
             } catch (ApiException e) {
                 System.err.println("Exception when calling writeNewLiftRide");
                 e.printStackTrace();
             }
         }
+        requestCount.success += successCount;
+        requestCount.failure += failureCount;
     }
 
-    protected void generateGETs(SkiersApi api) {
+    protected void generateGETs(SkiersApi api, RequestCount requestCount) {
+        int successCount = 0;
+        int failureCount = 0;
         for (int i = 0; i < numGET; i++) {
             try {
                 int skierId = startSkierId + rand.nextInt(endSkierId-startSkierId);
@@ -147,12 +179,17 @@ class LoadWorker implements Runnable {
                 if (responseCode.startsWith("4") || responseCode.startsWith("5")) {
                     logger.error(this.getClass().getName() + " received status code " + responseCode +
                             " when calling GET getSkierDayVertical");
+                    failureCount++;
+                } else {
+                    successCount++;
                 }
             } catch (ApiException e) {
                 System.err.println("Exception when calling getSkierDayVertical");
                 e.printStackTrace();
             }
         }
+        requestCount.success += successCount;
+        requestCount.failure += failureCount;
     }
 
     protected LiftRide packLiftRide(int liftId, int skierId, int minute) {
@@ -168,10 +205,11 @@ class LoadWorker implements Runnable {
 
 class LoadWorkerCoolDown extends LoadWorker {
 
-    public LoadWorkerCoolDown(List<CountDownLatch> latches, String serverPath, String resortId,
-                              String dayId, int numLifts,int startSkierId, int endSkierId,
-                              int startMinute, int endMinute) {
-        super(latches, serverPath, resortId, dayId, numLifts, startSkierId, endSkierId, startMinute, endMinute);
+    public LoadWorkerCoolDown(List<CountDownLatch> latches, String serverPath, RequestCount requestCount,
+                              String resortId, String dayId, int numLifts,
+                              int startSkierId, int endSkierId, int startMinute, int endMinute) {
+        super(latches, serverPath, requestCount, resortId, dayId, numLifts,
+                startSkierId, endSkierId, startMinute, endMinute);
         numGET = 10;
     }
 }

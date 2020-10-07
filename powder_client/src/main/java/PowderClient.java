@@ -3,12 +3,13 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 
+import io.swagger.client.ApiException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class PowderClient {
     private final String SCHEME = "http://";
-    private String serverPath = SCHEME + "localhost:8080/powder";
+    private String serverPath = SCHEME + "192.168.68.200:8080/powder/";
     private int maxThreads = 256;
     private int numSkiers = 50000;
     private int numLifts = 40;
@@ -22,12 +23,18 @@ public class PowderClient {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        // initialize client and set server path
+        // initialize client
         PowderClient client = new PowderClient();
+        client.runPhases();
+    }
 
-        int numThreadsPhase1 = client.maxThreads / 4;
-        int numThreadsPhase2 = client.maxThreads;
-        int numThreadsPhase3 = client.maxThreads / 4;
+    /**
+     * @return The total number of requests made
+     */
+    public int runPhases() throws InterruptedException {
+        int numThreadsPhase1 = maxThreads / 4;
+        int numThreadsPhase2 = maxThreads;
+        int numThreadsPhase3 = maxThreads / 4;
         CountDownLatch phase1End = new CountDownLatch(numThreadsPhase1);
         CountDownLatch phase2Start = new CountDownLatch((numThreadsPhase1 + 10 - 1) / 10);
         CountDownLatch phase2End = new CountDownLatch(numThreadsPhase2);
@@ -36,20 +43,24 @@ public class PowderClient {
         List<CountDownLatch> phase1Latches = Arrays.asList(phase1End, phase2Start);
         List<CountDownLatch> phase2Latches = Arrays.asList(phase2End, phase3Start);
         List<CountDownLatch> phase3Latches = Arrays.asList(phase3End);
+        RequestCount requestCountPhase1 = new RequestCount();
+        RequestCount requestCountPhase2 = new RequestCount();
+        RequestCount requestCountPhase3 = new RequestCount();
 
-        LoadGenerator phase1 = new LoadGenerator(client.serverPath, phase1Latches, numThreadsPhase1,
-                client.resortID, client.skiDay, client.numLifts, 0, client.numSkiers,
+        LoadGenerator phase1 = new LoadGenerator(serverPath, phase1Latches, requestCountPhase1,
+                numThreadsPhase1, resortID, skiDay, numLifts, 0, numSkiers,
                 1, 91);
-        LoadGenerator phase2 = new LoadGenerator(client.serverPath, phase2Latches,
-                numThreadsPhase2,
-                client.resortID, client.skiDay, client.numLifts, 0, client.numSkiers,
+        LoadGenerator phase2 = new LoadGenerator(serverPath, phase2Latches, requestCountPhase2,
+                numThreadsPhase2, resortID, skiDay, numLifts, 0, numSkiers,
                 91, 361);
-        LoadGenerator phase3 = new LoadGenerator(client.serverPath, phase3Latches, numThreadsPhase3,
-                client.resortID, client.skiDay, client.numLifts, 0, client.numSkiers,
+        LoadGenerator phase3 = new LoadGenerator(serverPath, phase3Latches, requestCountPhase3,
+                numThreadsPhase3, resortID, skiDay, numLifts, 0, numSkiers,
                 361, 421, true);
 
+        logger.info(this.getClass().getName() + " starts to run phases.");
+        logger.info(this.getClass().getName() + " serverPath is " + serverPath);
         System.out.println("phase 1 starting");
-        phase1.run();
+        long startNano = System.nanoTime();
         new Thread(phase1).start();
         phase2Start.await();
         System.out.println("phase 2 starting");
@@ -60,9 +71,22 @@ public class PowderClient {
         phase1End.await();
         phase2End.await();
         phase3End.await();
+        long endNano = System.nanoTime();
+        phase1.sumRequestCounter();
+        phase2.sumRequestCounter();
+        phase3.sumRequestCounter();
 
-        System.out.println("all phases completed");
-
+        System.out.println("All phases completed");
+        int success = requestCountPhase1.success + requestCountPhase2.success + requestCountPhase3.success;
+        int failure = requestCountPhase1.failure + requestCountPhase2.failure + requestCountPhase3.failure;
+        int totalRequest = success + failure;
+        System.out.println("Total number successful requests: " + success);
+        System.out.println("Total number of failed requests: " + failure);
+        int wallTime = (int) ((endNano - startNano) / 1000000);
+        System.out.println("Total run time (wall time): " + wallTime + " ms");
+        float throughput = ((float)totalRequest / wallTime) * 1000;
+        System.out.println("Throughput is: " + throughput + " req/sec");
+        return totalRequest;
     }
 
     // set parameters of the client from console inputs
