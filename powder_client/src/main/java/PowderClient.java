@@ -5,6 +5,7 @@ import io.swagger.client.api.ResortsApi;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 
 public class PowderClient {
     private final String SCHEME = "http://";
@@ -19,23 +20,44 @@ public class PowderClient {
         setParameters();
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         // initialize client and set server path
         PowderClient client = new PowderClient();
 
-        ApiClient apiClient = new ApiClient();
-        apiClient.setBasePath(client.serverPath);
+        int numThreadsPhase1 = client.maxThreads / 4;
+        int numThreadsPhase2 = client.maxThreads;
+        int numThreadsPhase3 = client.maxThreads / 4;
+        CountDownLatch phase1End = new CountDownLatch(numThreadsPhase1);
+        CountDownLatch phase2Start = new CountDownLatch((numThreadsPhase1 + 10 - 1) / 10);
+        CountDownLatch phase2End = new CountDownLatch(numThreadsPhase2);
+        CountDownLatch phase3Start = new CountDownLatch((numThreadsPhase2 + 10 - 1) / 10);
+        CountDownLatch phase3End = new CountDownLatch(numThreadsPhase3);
+        List<CountDownLatch> phase1Latches = Arrays.asList(phase1End, phase2Start);
+        List<CountDownLatch> phase2Latches = Arrays.asList(phase2End, phase3Start);
+        List<CountDownLatch> phase3Latches = Arrays.asList(phase3End);
 
-        ResortsApi apiInstance = new ResortsApi(apiClient);
-        List<String> resort = Arrays.asList("resort_example"); // List<String> | resort to query by
-        List<String> dayID = Arrays.asList("dayID_example"); // List<String> | day number in the season
-        try {
-            TopTen result = apiInstance.getTopTenVert(resort, dayID);
-            System.out.println(result);
-        } catch (ApiException e) {
-            System.err.println("Exception when calling ResortsApi#getTopTenVert");
-            e.printStackTrace();
-        }
+        LoadGenerator phase1 = new LoadGenerator(client.serverPath, phase1Latches, numThreadsPhase1,
+                                    0, client.numSkiers, 1, 91);
+        LoadGenerator phase2 = new LoadGenerator(client.serverPath, phase2Latches, numThreadsPhase2,
+                0, client.numSkiers, 91, 361);
+        LoadGenerator phase3 = new LoadGenerator(client.serverPath, phase3Latches, numThreadsPhase3,
+                0, client.numSkiers, 361, 421, true);
+
+        System.out.println("p1");
+        phase1.run();
+        new Thread(phase1).start();
+        phase2Start.await();
+        System.out.println("p2");
+        new Thread(phase2).start();
+        phase3Start.await();
+        System.out.println("p3");
+        new Thread(phase3).start();
+        phase1End.await();
+        phase2End.await();
+        phase3End.await();
+
+        System.out.println("all phases finished");
+
     }
 
     // set parameters of the client from console inputs
