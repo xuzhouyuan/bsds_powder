@@ -7,7 +7,7 @@ import javax.servlet.ServletContext;
 public class PowderServlet extends javax.servlet.http.HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         ServletContext context = getServletContext();
-        res.setContentType("text/plain");
+        res.setContentType("application/json");
         String urlPath = req.getPathInfo();
 
         context.log("post");
@@ -15,7 +15,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         // check we have a URL!
         if (urlPath == null || urlPath.isEmpty()) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            res.getWriter().write("missing parameters");
+            res.getWriter().write("{'message':'missing parameters'}");
             return;
         }
 
@@ -26,14 +26,14 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_ACCEPTED);
             // do any sophisticated processing with urlParts which contains all the url params
             // TODO: process url params in `urlParts`
-            res.getWriter().write("Post Request Received!");
+            res.getWriter().write("{'message':'called writeNewLiftRide'}");
         }
         return;
     }
 
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         ServletContext context = getServletContext();
-        res.setContentType("text/plain");
+        res.setContentType("application/json");
         String urlPath = req.getPathInfo();
 
         context.log("get");
@@ -41,14 +41,14 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         // check we have a URL!
         if (urlPath == null || urlPath.isEmpty()) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            res.getWriter().write("missing parameters");
+            res.getWriter().write("{'message':'missing parameters'}");
             return;
         }
 
         String[] urlParts = urlPath.split("/");
         if (urlParts.length == 0) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            res.getWriter().write("missing parameters");
+            res.getWriter().write("{'message':'missing parameters'}");
             return;
         }
 
@@ -57,7 +57,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
                     && urlParts[2].equals("day")
                     && urlParts[3].equals("top10vert")
             ) {
-                urlValidResponse(res);
+                res.getWriter().write("{'message':'called getTopTenVert'}");
                 String queryString = req.getQueryString();
                 // TODO: process qs
                 // res.getWriter().write(queryString);
@@ -70,7 +70,8 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
 //                    && urlParts[2] in skierIDs
                     && urlParts[3].equals("vertical")
             ) {
-                urlValidResponse(res);
+                res.setStatus(HttpServletResponse.SC_OK);
+                res.getWriter().write("{'message':'called SkierDayVertical'}");
                 return;
             }
             else if (urlParts.length == 7
@@ -80,7 +81,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
                     && urlParts[5].equals("skiers")
 //                    && urlParts[6] in skiersIDs
             ) {
-                urlValidResponse(res);
+                res.getWriter().write("{'message':'called SkierResortTotals'}");
                 return;
             }
         }
@@ -88,9 +89,6 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         // default to invalid url
         res.setStatus(HttpServletResponse.SC_NOT_FOUND);
         return;
-
-//            // for debug
-//            res.getWriter().write(Arrays.toString(urlParts));
 
     }
 
@@ -102,13 +100,5 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             return true;
         }
         return false;
-    }
-
-    private void urlValidResponse(HttpServletResponse res) throws IOException {
-        res.setStatus(HttpServletResponse.SC_OK);
-        // do any sophisticated processing with urlParts which contains all the url params
-        // TODO: ?
-        // res.getWriter().write("It works!");
-        return;
     }
 }

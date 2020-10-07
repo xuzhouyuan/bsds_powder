@@ -1,11 +1,10 @@
-import io.swagger.client.*;
-import io.swagger.client.auth.*;
-import io.swagger.client.model.*;
-import io.swagger.client.api.ResortsApi;
-
-import java.io.File;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class PowderClient {
     private final String SCHEME = "http://";
@@ -15,6 +14,8 @@ public class PowderClient {
     private int numLifts = 40;
     private int skiDay = 1;
     private String resortID = "SilverMt";
+
+    private static Logger logger = LogManager.getLogger(PowderClient.class);
 
     public PowderClient() {
         setParameters();
@@ -37,26 +38,30 @@ public class PowderClient {
         List<CountDownLatch> phase3Latches = Arrays.asList(phase3End);
 
         LoadGenerator phase1 = new LoadGenerator(client.serverPath, phase1Latches, numThreadsPhase1,
-                                    0, client.numSkiers, 1, 91);
-        LoadGenerator phase2 = new LoadGenerator(client.serverPath, phase2Latches, numThreadsPhase2,
-                0, client.numSkiers, 91, 361);
+                client.resortID, client.skiDay, client.numLifts, 0, client.numSkiers,
+                1, 91);
+        LoadGenerator phase2 = new LoadGenerator(client.serverPath, phase2Latches,
+                numThreadsPhase2,
+                client.resortID, client.skiDay, client.numLifts, 0, client.numSkiers,
+                91, 361);
         LoadGenerator phase3 = new LoadGenerator(client.serverPath, phase3Latches, numThreadsPhase3,
-                0, client.numSkiers, 361, 421, true);
+                client.resortID, client.skiDay, client.numLifts, 0, client.numSkiers,
+                361, 421, true);
 
-        System.out.println("p1");
+        System.out.println("phase 1 starting");
         phase1.run();
         new Thread(phase1).start();
         phase2Start.await();
-        System.out.println("p2");
+        System.out.println("phase 2 starting");
         new Thread(phase2).start();
         phase3Start.await();
-        System.out.println("p3");
+        System.out.println("phase 3 starting");
         new Thread(phase3).start();
         phase1End.await();
         phase2End.await();
         phase3End.await();
 
-        System.out.println("all phases finished");
+        System.out.println("all phases completed");
 
     }
 
