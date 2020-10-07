@@ -10,7 +10,6 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
 public class LoadGenerator implements Runnable{
@@ -24,18 +23,16 @@ public class LoadGenerator implements Runnable{
     private int startMinute, endMinute;
     private boolean coolDown = false;
 
+    private static Logger logger = LogManager.getLogger(PowderClient.class);
     private List<RequestCount> requestCounter;
     private RequestCount requestCount;
-    private BlockingQueue<String> latencyQueue;
-    private static Logger logger = LogManager.getLogger(PowderClient.class);
 
     public LoadGenerator(String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
-                         BlockingQueue<String> latencyQueue, int numThreads,String resortID, int dayId, int numLifts,
+                         int numThreads,String resortID, int dayId, int numLifts,
                          int startSkierId, int endSkierId, int startMinute, int endMinute) {
         this.serverPath = serverPath;
         this.latches = latches;
         this.requestCount = requestCount;
-        this.latencyQueue = latencyQueue;
         this.numThreads = numThreads;
         this.resortID = resortID;
         this.dayId = Integer.toString(dayId);
@@ -48,10 +45,10 @@ public class LoadGenerator implements Runnable{
     }
 
     public LoadGenerator(String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
-                         BlockingQueue<String> latencyQueue, int numThreads, String resortID, int dayId, int numLifts,
+                         int numThreads, String resortID, int dayId, int numLifts,
                          int startSkierId, int endSkierId, int startMinute, int endMinute,
                          boolean coolDown) {
-        this(serverPath, latches, requestCount, latencyQueue, numThreads, resortID, dayId, numLifts,
+        this(serverPath, latches, requestCount, numThreads, resortID, dayId, numLifts,
                 startSkierId, endSkierId, startMinute, endMinute);
         this.coolDown = coolDown;
     }
@@ -68,7 +65,7 @@ public class LoadGenerator implements Runnable{
                 int workerStartSkierId = startSkierId + i * (numSkiers / numThreads);
                 int workerEndSkierId = startSkierId + (i + 1) * (numSkiers / numThreads);
                 LoadWorkerCoolDown worker = new LoadWorkerCoolDown(latches, serverPath, requestCount,
-                        latencyQueue, resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
+                        resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
                         startMinute, endMinute);
                 new Thread(worker).start();
             }
@@ -81,7 +78,7 @@ public class LoadGenerator implements Runnable{
                 int workerStartSkierId = startSkierId + i * (numSkiers / numThreads);
                 int workerEndSkierId = startSkierId + (i + 1) * (numSkiers / numThreads);
                 LoadWorker worker = new LoadWorker(latches, serverPath, requestCount,
-                        latencyQueue, resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
+                        resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
                         startMinute, endMinute);
                 new Thread(worker).start();
             }
@@ -101,9 +98,7 @@ class LoadWorker implements Runnable {
     protected List<CountDownLatch> latches;
     protected String serverPath;
     protected RequestCount requestCount;
-    protected BlockingQueue<String> latencyQueue;
     protected Random rand;
-    protected static Logger logger = LogManager.getLogger(PowderClient.class);
 
     protected String resortId;
     protected String dayId;
@@ -114,13 +109,14 @@ class LoadWorker implements Runnable {
     protected int numPOST = 100;
     protected int numGET = 5;
 
+    protected static Logger logger = LogManager.getLogger(PowderClient.class);
+
     public LoadWorker(List<CountDownLatch> latches, String serverPath, RequestCount requestCount,
-                      BlockingQueue<String> latencyQueue, String resortId, String dayId, int numLifts,
+                      String resortId, String dayId, int numLifts,
                       int startSkierId, int endSkierId, int startMinute, int endMinute) {
         this.latches = latches;
         this.serverPath = serverPath;
         this.requestCount = requestCount;
-        this.latencyQueue = latencyQueue;
         this.resortId = resortId;
         this.dayId = dayId;
         this.numLifts = numLifts;
@@ -137,14 +133,14 @@ class LoadWorker implements Runnable {
         apiClient.setBasePath(serverPath);
         SkiersApi api = new SkiersApi(apiClient);
         logger.info(this.getClass().getName() + "starting to create loads.");
-        generatePOSTs(api);
-        generateGETs(api);
+        generatePOSTs(api, requestCount);
+        generateGETs(api, requestCount);
         for (int i = 0; i < latches.size(); i++) {
             latches.get(i).countDown();
         }
     }
 
-    protected void generatePOSTs(SkiersApi api) {
+    protected void generatePOSTs(SkiersApi api, RequestCount requestCount) {
         int successCount = 0;
         int failureCount = 0;
         for (int i = 0; i < numPOST; i++) {
@@ -153,15 +149,8 @@ class LoadWorker implements Runnable {
                 int liftId = rand.nextInt(numLifts) + 1;
                 int minute = startMinute + rand.nextInt(endMinute-startMinute);
                 LiftRide ride = packLiftRide(liftId, skierId, minute);
-                long startNano = System.nanoTime();
                 ApiResponse<Void> response = api.writeNewLiftRideWithHttpInfo(ride);
-                long endNano = System.nanoTime();
-                int latency = (int) ((endNano - startNano) / 1000000); // millisecond
                 String responseCode = Integer.toString(response.getStatusCode());
-                String latencyEntry = startNano + ",POST," + latency + "," + responseCode;
-                if (!latencyQueue.offer(latencyEntry)) {
-                    logger.error("latencyQueue is full, latency entry not logged: " + latencyEntry);
-                }
                 if (responseCode.startsWith("4") || responseCode.startsWith("5")) {
                     logger.error(this.getClass().getName() + " received status code " + responseCode +
                             " when calling POST writeNewLiftRide");
@@ -179,22 +168,15 @@ class LoadWorker implements Runnable {
         requestCount.failure += failureCount;
     }
 
-    protected void generateGETs(SkiersApi api) {
+    protected void generateGETs(SkiersApi api, RequestCount requestCount) {
         int successCount = 0;
         int failureCount = 0;
         for (int i = 0; i < numGET; i++) {
             try {
                 int skierId = startSkierId + rand.nextInt(endSkierId-startSkierId);
-                long startNano = System.nanoTime();
                 ApiResponse<SkierVertical> response = api.getSkierDayVerticalWithHttpInfo(resortId, dayId,
                         Integer.toString(skierId));
-                long endNano = System.nanoTime();
-                int latency = (int) ((endNano - startNano) / 1000000); // millisecond
                 String responseCode = Integer.toString(response.getStatusCode());
-                String latencyEntry = startNano + ",GET," + latency + "," + responseCode;
-                if (!latencyQueue.offer(latencyEntry)) {
-                    logger.error("latencyQueue is full, latency entry not logged: " + latencyEntry);
-                }
                 if (responseCode.startsWith("4") || responseCode.startsWith("5")) {
                     logger.error(this.getClass().getName() + " received status code " + responseCode +
                             " when calling GET getSkierDayVertical");
@@ -226,9 +208,9 @@ class LoadWorker implements Runnable {
 class LoadWorkerCoolDown extends LoadWorker {
 
     public LoadWorkerCoolDown(List<CountDownLatch> latches, String serverPath, RequestCount requestCount,
-                              BlockingQueue<String> latencyQueue, String resortId, String dayId, int numLifts,
+                              String resortId, String dayId, int numLifts,
                               int startSkierId, int endSkierId, int startMinute, int endMinute) {
-        super(latches, serverPath, requestCount, latencyQueue, resortId, dayId, numLifts,
+        super(latches, serverPath, requestCount, resortId, dayId, numLifts,
                 startSkierId, endSkierId, startMinute, endMinute);
         numGET = 10;
     }
