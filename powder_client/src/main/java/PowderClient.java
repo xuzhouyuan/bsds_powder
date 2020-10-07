@@ -1,3 +1,6 @@
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -21,7 +24,7 @@ public class PowderClient {
         setParameters();
     }
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, IOException {
         // initialize client
         PowderClient client = new PowderClient();
         BlockingQueue<String> latencyQueue = new LinkedBlockingQueue<>();
@@ -31,7 +34,7 @@ public class PowderClient {
     /**
      * @return The total number of requests made
      */
-    public int runPhases(BlockingQueue<String> latencyQueue) throws InterruptedException {
+    public int runPhases(BlockingQueue<String> latencyQueue) throws InterruptedException, IOException {
         int numThreadsPhase1 = maxThreads / 4;
         int numThreadsPhase2 = maxThreads;
         int numThreadsPhase3 = maxThreads / 4;
@@ -90,21 +93,30 @@ public class PowderClient {
         return totalRequest;
     }
 
-    private void processLatencyStat(BlockingQueue<String> latencyQueue) {
+    private String[] processLatencyStat(BlockingQueue<String> latencyQueue) throws IOException {
         // TODO: [in the future] create thread to write latencyQueue to csv file,
         //  process stats from file after completion.
         List<Integer> latencyPOST = new ArrayList<>();
         List<Integer> latencyGET = new ArrayList<>();
+        File csvOutputPOST = File.createTempFile("powder-client-request-latency-POST-", ".csv");
+        File csvOutputGET = File.createTempFile("powder-client-request-latency-GET-", ".csv");
+        System.out.println("POST latency entries stored at " + csvOutputPOST.getAbsolutePath());
+        System.out.println("GET latency entries stored at " + csvOutputGET.getAbsolutePath());
+        FileWriter writerPOST = new FileWriter(csvOutputPOST.getAbsolutePath());
+        FileWriter writerGET = new FileWriter(csvOutputGET.getAbsolutePath());
         while (!latencyQueue.isEmpty()) {
             String entryString = latencyQueue.poll();
-            //TODO: write entryString to csv file
             String[] entry = entryString.split(",");
             if (entry[1].equals("POST")) {
+                writerPOST.write(entryString+"\n");
                 latencyPOST.add(Integer.parseInt(entry[2]));
             } else if (entry[1].equals("GET")) {
+                writerGET.write(entryString+"\n");
                 latencyGET.add(Integer.parseInt(entry[2]));
             }
         }
+        writerPOST.close();
+        writerGET.close();
         Collections.sort(latencyPOST);
         Collections.sort(latencyGET);
 
@@ -127,6 +139,7 @@ public class PowderClient {
         System.out.println(findP99(latencyGET));
         System.out.print("  MAX   : ");
         System.out.println(latencyGET.get(latencyGET.size()-1));
+        return new String[] {csvOutputPOST.getAbsolutePath(), csvOutputGET.getAbsolutePath()};
     }
 
     private int findMedian(List<Integer> list) {
