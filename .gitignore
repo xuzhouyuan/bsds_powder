@@ -24,6 +24,12 @@ target
 .gradle
 build
 
+# logging files
+**/log
+**/logs
+log
+logs
+
 # Linux trash folder which might appear on any partition or disk
 .Trash-*
 
