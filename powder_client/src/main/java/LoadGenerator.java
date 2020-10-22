@@ -10,8 +10,7 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
 
 public class LoadGenerator implements Runnable{
     private String serverPath;
@@ -24,14 +23,17 @@ public class LoadGenerator implements Runnable{
     private int startMinute, endMinute;
     private boolean coolDown = false;
 
+    private ExecutorService executor;
+
     private List<RequestCount> requestCounter;
     private RequestCount requestCount;
     private BlockingQueue<String> latencyQueue;
     private static Logger logger = LogManager.getLogger(PowderClient.class);
 
-    public LoadGenerator(String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
+    public LoadGenerator(ExecutorService executor, String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
                          BlockingQueue<String> latencyQueue, int numThreads,String resortID, int dayId, int numLifts,
                          int startSkierId, int endSkierId, int startMinute, int endMinute) {
+        this.executor = executor;
         this.serverPath = serverPath;
         this.latches = latches;
         this.requestCount = requestCount;
@@ -47,11 +49,11 @@ public class LoadGenerator implements Runnable{
         requestCounter = new ArrayList<>(numThreads);
     }
 
-    public LoadGenerator(String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
+    public LoadGenerator(ExecutorService executor, String serverPath, List<CountDownLatch> latches, RequestCount requestCount,
                          BlockingQueue<String> latencyQueue, int numThreads, String resortID, int dayId, int numLifts,
                          int startSkierId, int endSkierId, int startMinute, int endMinute,
                          boolean coolDown) {
-        this(serverPath, latches, requestCount, latencyQueue, numThreads, resortID, dayId, numLifts,
+        this(executor, serverPath, latches, requestCount, latencyQueue, numThreads, resortID, dayId, numLifts,
                 startSkierId, endSkierId, startMinute, endMinute);
         this.coolDown = coolDown;
     }
@@ -67,10 +69,11 @@ public class LoadGenerator implements Runnable{
                 // calculate skierId range for different workers
                 int workerStartSkierId = startSkierId + i * (numSkiers / numThreads);
                 int workerEndSkierId = startSkierId + (i + 1) * (numSkiers / numThreads);
+                // TODO change to use executor and then compare walltime
                 LoadWorkerCoolDown worker = new LoadWorkerCoolDown(latches, serverPath, requestCount,
                         latencyQueue, resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
                         startMinute, endMinute);
-                new Thread(worker).start();
+                executor.submit(worker);
             }
         } else {
             logger.info("Starting generate loads with LoadWorker");
@@ -83,14 +86,13 @@ public class LoadGenerator implements Runnable{
                 LoadWorker worker = new LoadWorker(latches, serverPath, requestCount,
                         latencyQueue, resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
                         startMinute, endMinute);
-                new Thread(worker).start();
+                executor.submit(worker);
             }
         }
     }
 
     public void sumRequestCounter() {
-        for (int i = 0; i < requestCounter.size(); i++) {
-            RequestCount workerCount = requestCounter.get(i);
+        for (RequestCount workerCount : requestCounter) {
             requestCount.success += workerCount.success;
             requestCount.failure += workerCount.failure;
         }
@@ -139,8 +141,8 @@ class LoadWorker implements Runnable {
         logger.info(this.getClass().getName() + "starting to create loads.");
         generatePOSTs(api);
         generateGETs(api);
-        for (int i = 0; i < latches.size(); i++) {
-            latches.get(i).countDown();
+        for (CountDownLatch latch : latches) {
+            latch.countDown();
         }
     }
 

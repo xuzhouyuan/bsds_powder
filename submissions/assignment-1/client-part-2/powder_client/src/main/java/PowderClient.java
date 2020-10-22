@@ -11,7 +11,7 @@ import org.apache.logging.log4j.Logger;
 
 public class PowderClient {
     private final String SCHEME = "http://";
-    private String serverPath = SCHEME + "18.237.250.178:8080/powder/";
+    private String serverPath = SCHEME + "34.223.113.123:8080/powder/";
     private int maxThreads = 256;
     private int numSkiers = 20000;
     private int numLifts = 40;

@@ -2,21 +2,21 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class PowderClient {
     private final String SCHEME = "http://";
-    private String serverPath = SCHEME + "18.237.250.178:8080/powder/";
+    private String serverPath = SCHEME + "34.223.113.123:8080/powder/";
     private int maxThreads = 256;
     private int numSkiers = 20000;
     private int numLifts = 40;
     private int skiDay = 1;
     private String resortID = "SilverMt";
+
+    private ExecutorService executor = Executors.newCachedThreadPool();
 
     private static Logger logger = LogManager.getLogger(PowderClient.class);
 
@@ -29,6 +29,7 @@ public class PowderClient {
         PowderClient client = new PowderClient();
         BlockingQueue<String> latencyQueue = new LinkedBlockingQueue<>();
         client.runPhases(latencyQueue);
+        System.out.println("Done");
     }
 
     /**
@@ -50,13 +51,13 @@ public class PowderClient {
         RequestCount requestCountPhase2 = new RequestCount();
         RequestCount requestCountPhase3 = new RequestCount();
 
-        LoadGenerator phase1 = new LoadGenerator(serverPath, phase1Latches, requestCountPhase1,
+        LoadGenerator phase1 = new LoadGenerator(executor, serverPath, phase1Latches, requestCountPhase1,
                 latencyQueue, numThreadsPhase1, resortID, skiDay, numLifts,
                 0, numSkiers, 1, 91);
-        LoadGenerator phase2 = new LoadGenerator(serverPath, phase2Latches, requestCountPhase2,
+        LoadGenerator phase2 = new LoadGenerator(executor, serverPath, phase2Latches, requestCountPhase2,
                 latencyQueue, numThreadsPhase2, resortID, skiDay, numLifts,
                 0, numSkiers, 91, 361);
-        LoadGenerator phase3 = new LoadGenerator(serverPath, phase3Latches, requestCountPhase3,
+        LoadGenerator phase3 = new LoadGenerator(executor, serverPath, phase3Latches, requestCountPhase3,
                 latencyQueue, numThreadsPhase3, resortID, skiDay, numLifts,
                 0, numSkiers, 361, 421, true);
 
@@ -64,13 +65,13 @@ public class PowderClient {
         logger.info(this.getClass().getName() + " serverPath is " + serverPath);
         System.out.println("phase 1 starting");
         long startNano = System.nanoTime();
-        new Thread(phase1).start();
+        executor.submit(phase1);
         phase2Start.await();
         System.out.println("phase 2 starting");
-        new Thread(phase2).start();
+        executor.submit(phase2);
         phase3Start.await();
         System.out.println("phase 3 starting");
-        new Thread(phase3).start();
+        executor.submit(phase3);
         phase1End.await();
         phase2End.await();
         phase3End.await();
