@@ -5,6 +5,8 @@ import javax.servlet.ServletException;
 import javax.servlet.ServletContext;
 
 public class PowderServlet extends javax.servlet.http.HttpServlet {
+    // TODO: connect to db
+
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         ServletContext context = getServletContext();
         res.setContentType("application/json");
@@ -12,22 +14,25 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
 
         context.log("post");
 
-        // check we have a URL!
-        if (urlPath == null || urlPath.isEmpty()) {
+        String[] urlParts;
+        try {
+            urlParts = splitUrl(urlPath);
+        } catch (InvalidUrlException e) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
             res.getWriter().write("{'message':'missing parameters'}");
             return;
         }
 
-        String[] urlParts = urlPath.split("/");
-        if (!isUrlValidPost(urlParts)) {
-            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        } else {
-            res.setStatus(HttpServletResponse.SC_ACCEPTED);
-            // do any sophisticated processing with urlParts which contains all the url params
-            // TODO: process url params in `urlParts`
-            res.getWriter().write("{'message':'called writeNewLiftRide'}");
+        if (urlParts.length == 3
+                && urlParts[1].equals("skiers")
+                && urlParts[2].equals("liftrides")) {
+            writeNewLiftRide(req, res);
+            return;
         }
+
+        // default response to invalid url
+        res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        res.getWriter().write("{'message':'invalid url'}");
         return;
     }
 
@@ -44,7 +49,6 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             res.getWriter().write("{'message':'missing parameters'}");
             return;
         }
-
         String[] urlParts = urlPath.split("/");
         if (urlParts.length == 0) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -86,19 +90,49 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             }
         }
 
-        // default to invalid url
+        // default response to invalid url
         res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        res.getWriter().write("{'message':'invalid url'}");
         return;
 
     }
 
-    private boolean isUrlValidPost(String[] urlParts) {
-        // TODO: validate the request url path according to the API spec
-        if (urlParts.length == 3
-                && urlParts[1].equals("skiers")
-                && urlParts[2].equals("liftrides")) {
-            return true;
+    private void writeNewLiftRide(HttpServletRequest req, HttpServletResponse res) {
+        // TODO: unpack json, write to db
+        res.setStatus(HttpServletResponse.SC_ACCEPTED);
+        return;
+    }
+
+    private void getSkierResortTotals(HttpServletRequest req, HttpServletResponse res) {
+
+        return;
+    }
+
+    private void getSkierDayVertical(HttpServletRequest req, HttpServletResponse res) {
+
+        return;
+    }
+
+    private void getTopTenVert(HttpServletRequest req, HttpServletResponse res) {
+
+        return;
+    }
+
+    private String[] splitUrl(String urlPath) throws InvalidUrlException {
+        // check we have a URL!
+        if (urlPath == null || urlPath.isEmpty()) {
+            throw new InvalidUrlException();
         }
-        return false;
+        String[] urlParts = urlPath.split("/");
+        if (urlParts.length == 0) {
+            throw new InvalidUrlException();
+        }
+        return urlParts;
+    }
+}
+
+class InvalidUrlException extends Exception {
+    public InvalidUrlException() {
+
     }
 }

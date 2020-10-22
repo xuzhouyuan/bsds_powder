@@ -69,7 +69,6 @@ public class LoadGenerator implements Runnable{
                 // calculate skierId range for different workers
                 int workerStartSkierId = startSkierId + i * (numSkiers / numThreads);
                 int workerEndSkierId = startSkierId + (i + 1) * (numSkiers / numThreads);
-                // TODO change to use executor and then compare walltime
                 LoadWorkerCoolDown worker = new LoadWorkerCoolDown(latches, serverPath, requestCount,
                         latencyQueue, resortID, dayId, numLifts, workerStartSkierId, workerEndSkierId,
                         startMinute, endMinute);
