@@ -61,11 +61,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
                     && urlParts[2].equals("day")
                     && urlParts[3].equals("top10vert")
             ) {
-                res.getWriter().write("{'message':'called getTopTenVert'}");
-                String queryString = req.getQueryString();
-                // TODO: process qs
-                // res.getWriter().write(queryString);
-
+                getTopTenVert(req, res);
                 return;
             }
         }
@@ -74,8 +70,8 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
 //                    && urlParts[2] in skierIDs
                     && urlParts[3].equals("vertical")
             ) {
-                res.setStatus(HttpServletResponse.SC_OK);
-                res.getWriter().write("{'message':'called SkierDayVertical'}");
+                // TODO: missing resortID, clarify with TA
+                getSkierResortTotals(req, res);
                 return;
             }
             else if (urlParts.length == 7
@@ -85,7 +81,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
                     && urlParts[5].equals("skiers")
 //                    && urlParts[6] in skiersIDs
             ) {
-                res.getWriter().write("{'message':'called SkierResortTotals'}");
+                getSkierDayVertical(req, res);
                 return;
             }
         }
@@ -103,18 +99,27 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         return;
     }
 
-    private void getSkierResortTotals(HttpServletRequest req, HttpServletResponse res) {
+    private void getSkierResortTotals(HttpServletRequest req, HttpServletResponse res) throws IOException {
 
+        res.setStatus(HttpServletResponse.SC_OK);
+        res.getWriter().write("{'message':'called SkierResortTotals'}");
         return;
     }
 
-    private void getSkierDayVertical(HttpServletRequest req, HttpServletResponse res) {
+    private void getSkierDayVertical(HttpServletRequest req, HttpServletResponse res) throws IOException {
 
+        res.setStatus(HttpServletResponse.SC_OK);
+        res.getWriter().write("{'message':'called SkierDayVertical'}");
         return;
     }
 
-    private void getTopTenVert(HttpServletRequest req, HttpServletResponse res) {
+    private void getTopTenVert(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        String queryString = req.getQueryString();
+        // TODO: process qs
+        // res.getWriter().write(queryString);
 
+        res.setStatus(HttpServletResponse.SC_OK);
+        res.getWriter().write("{'message':'called getTopTenVert'}");
         return;
     }
 
@@ -129,10 +134,9 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         }
         return urlParts;
     }
-}
 
-class InvalidUrlException extends Exception {
-    public InvalidUrlException() {
+
+    public static void main(String[] args) {
 
     }
 }
