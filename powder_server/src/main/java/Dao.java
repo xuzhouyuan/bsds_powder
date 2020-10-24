@@ -6,23 +6,31 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 public class Dao {
-    protected static BasicDataSource dataSource = DBCPDataSource.getDataSource();
+    protected static BasicDataSource dataSource;
+
+    public Dao() {
+       dataSource = DBCPDataSource.getDataSource();
+    }
 }
 
 class LiftRideDao extends Dao {
-    public void createLiftRide(LiftRide newLiftRide) {
+    public LiftRideDao() {
+        super();
+    }
+
+    public void createLiftRide(LiftRide ride) {
         Connection conn = null;
         PreparedStatement preparedStatement = null;
-        String insertQueryStatement = "INSERT INTO LiftRides (skierId, resortId, seasonId, dayId, time, liftId) " +
-                "VALUES (?,?,?,?,?,?)";
+        String insertQueryStatement = "INSERT INTO LiftRides (skierID, dayID, time, resortID, liftID) " +
+                "VALUES (?,?,?,?,?)";
         try {
             conn = dataSource.getConnection();
             preparedStatement = conn.prepareStatement(insertQueryStatement);
-            preparedStatement.setInt(1, newLiftRide.getSkierID());
-            preparedStatement.setInt(2, newLiftRide.getResortID());
-            preparedStatement.setInt(4, newLiftRide.getDayID());
-            preparedStatement.setInt(5, newLiftRide.getTime());
-            preparedStatement.setInt(6, newLiftRide.getLiftID());
+            preparedStatement.setString(1, ride.getSkierID());
+            preparedStatement.setString(2, ride.getDayID());
+            preparedStatement.setString(3, ride.getTime());
+            preparedStatement.setString(4, ride.getResortID());
+            preparedStatement.setString(5, ride.getLiftID());
 
             // execute insert SQL statement
             preparedStatement.executeUpdate();

@@ -1,3 +1,7 @@
+import com.google.gson.Gson;
+import io.swagger.client.model.LiftRide;
+
+import java.io.BufferedReader;
 import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -93,9 +97,18 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
 
     }
 
-    private void writeNewLiftRide(HttpServletRequest req, HttpServletResponse res) {
-        // TODO: unpack json, write to db
+    // POST
+    private void writeNewLiftRide(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        // unpack request body to json, write to db through dao
+        BufferedReader reader = req.getReader();
+        Gson gson = new Gson();
+
+        LiftRide ride = gson.fromJson(reader, LiftRide.class);
+        LiftRideDao dao = new LiftRideDao();
+        dao.createLiftRide(ride);
+
         res.setStatus(HttpServletResponse.SC_ACCEPTED);
+        res.getWriter().write("{'message':'called writeNewLiftRide'}");
         return;
     }
 
@@ -135,8 +148,4 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         return urlParts;
     }
 
-
-    public static void main(String[] args) {
-
-    }
 }

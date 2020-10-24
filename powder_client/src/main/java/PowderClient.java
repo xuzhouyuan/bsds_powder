@@ -207,13 +207,13 @@ public class PowderClient {
         System.out.println("skiDay is " + this.skiDay + "\n");
 
         System.out.println("Please enter the the resort name (Default SilverMt):");
-        String inputResortId = inputScan.nextLine();
-        if (inputResortId.isEmpty()) {
+        String inputResortID = inputScan.nextLine();
+        if (inputResortID.isEmpty()) {
             System.out.println("default value used");
         } else {
-            this.resortID = inputResortId;
+            this.resortID = inputResortID;
         }
-        System.out.println("resortId is " + this.resortID + "\n");
+        System.out.println("resortID is " + this.resortID + "\n");
 
         System.out.println("Please enter address of the server including port (Default localhost):");
         String inputServerPath = inputScan.nextLine();
