@@ -1,17 +1,18 @@
 import com.google.gson.Gson;
 import io.swagger.client.model.LiftRide;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.sql.SQLException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.ServletException;
 import javax.servlet.ServletContext;
 
 public class PowderServlet extends javax.servlet.http.HttpServlet {
     // TODO: connect to db
 
-    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws IOException {
         ServletContext context = getServletContext();
         res.setContentType("application/json");
         String urlPath = req.getPathInfo();
@@ -40,7 +41,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         return;
     }
 
-    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         ServletContext context = getServletContext();
         res.setContentType("application/json");
         String urlPath = req.getPathInfo();
@@ -48,13 +49,10 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         context.log("get");
 
         // check we have a URL!
-        if (urlPath == null || urlPath.isEmpty()) {
-            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            res.getWriter().write("{'message':'missing parameters'}");
-            return;
-        }
-        String[] urlParts = urlPath.split("/");
-        if (urlParts.length == 0) {
+        String[] urlParts;
+        try {
+            urlParts = splitUrl(urlPath);
+        } catch (InvalidUrlException e) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
             res.getWriter().write("{'message':'missing parameters'}");
             return;
@@ -74,8 +72,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
 //                    && urlParts[2] in skierIDs
                     && urlParts[3].equals("vertical")
             ) {
-                // TODO: missing resortID, clarify with TA
-                getSkierResortTotals(req, res);
+                getSkierResortTotals(req, res, urlParts[2]);
                 return;
             }
             else if (urlParts.length == 7
@@ -85,7 +82,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
                     && urlParts[5].equals("skiers")
 //                    && urlParts[6] in skiersIDs
             ) {
-                getSkierDayVertical(req, res);
+                getSkierDayVertical(req, res, urlParts[2], urlParts[4], urlParts[6]);
                 return;
             }
         }
@@ -99,30 +96,91 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
 
     // POST
     private void writeNewLiftRide(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        // unpack request body to json, write to db through dao
+        // verify and unpack request body to json, then write to db through dao
         BufferedReader reader = req.getReader();
+        if (!reader.ready()) {
+            res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            res.getWriter().write("{\"message\":\"Invalid Inputs\"}");
+            return;
+        }
         Gson gson = new Gson();
-
         LiftRide ride = gson.fromJson(reader, LiftRide.class);
+        if (StringUtils.isEmpty(ride.getDayID()) ||
+                StringUtils.isEmpty(ride.getLiftID()) ||
+                StringUtils.isEmpty(ride.getResortID()) ||
+                StringUtils.isEmpty(ride.getSkierID()) ||
+                StringUtils.isEmpty(ride.getTime())) {
+            res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            res.getWriter().write("{\"message\":\"Invalid Inputs\"}");
+            return;
+        }
+
         LiftRideDao dao = new LiftRideDao();
-        dao.createLiftRide(ride);
+        try {
+            dao.writeNewLiftRide(ride);
+        } catch (SQLException e) {
+            res.setStatus(HttpServletResponse.SC_ACCEPTED);
+            return;
+        }
 
-        res.setStatus(HttpServletResponse.SC_ACCEPTED);
-        res.getWriter().write("{'message':'called writeNewLiftRide'}");
+        res.setStatus(HttpServletResponse.SC_CREATED);
         return;
     }
 
-    private void getSkierResortTotals(HttpServletRequest req, HttpServletResponse res) throws IOException {
+    private void getSkierDayVertical(HttpServletRequest req, HttpServletResponse res,
+                                      String resortID, String dayID, String skierID) throws IOException {
+        if (StringUtils.isEmpty(resortID) ||
+                StringUtils.isEmpty(dayID) ||
+                StringUtils.isEmpty(skierID) ||
+                Integer.parseInt(dayID) < 1 ||
+                Integer.parseInt(dayID) > 366) {
+            res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            res.getWriter().write("{\"message\":\"Invalid Inputs\"}");
+            return;
+        }
+
+        LiftRideDao dao = new LiftRideDao();
+        int totalVert;
+        try {
+            totalVert = dao.getSkierDayVertical(resortID, dayID, skierID);
+        } catch (SQLException e) {
+            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            res.getWriter().write( "{\"message\":\"Data Not Found\"}");
+            return;
+        }
 
         res.setStatus(HttpServletResponse.SC_OK);
-        res.getWriter().write("{'message':'called SkierResortTotals'}");
+        res.getWriter().write("{\"resortID\":\"" + resortID + "\"," +
+                "\"totalVert\":" + totalVert + "}");
         return;
     }
 
-    private void getSkierDayVertical(HttpServletRequest req, HttpServletResponse res) throws IOException {
+    private void getSkierResortTotals(HttpServletRequest req, HttpServletResponse res,
+                                        String skierID) throws IOException {
+        // TODO: validate query
+        // verify and unpack request body to json, then write to db through dao
+        BufferedReader reader = req.getReader();
+        if (!reader.ready()) {
+            res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            res.getWriter().write("{\"message\":\"Invalid Inputs\"}");
+            return;
+        }
+        String resortID = reader.readLine();
+        System.out.println(resortID);
+
+        LiftRideDao dao = new LiftRideDao();
+        int totalVert;
+        try {
+            totalVert = dao.getSkierResortTotals(skierID, resortID);
+        } catch (SQLException e) {
+            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            res.getWriter().write("{\"message\":\"Data Not Found\"}");
+            return;
+        }
 
         res.setStatus(HttpServletResponse.SC_OK);
-        res.getWriter().write("{'message':'called SkierDayVertical'}");
+        res.getWriter().write("{\"resortID\":\"" + resortID + "\"," +
+                "\"totalVert\":" + totalVert + "}");
         return;
     }
 
