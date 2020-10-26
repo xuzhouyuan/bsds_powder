@@ -98,10 +98,10 @@ class LiftRideDao extends Dao {
         PreparedStatement preparedStatement = null;
         ResultSet resultSet;
         int totalVert;
-        // TODO change querystring, get answer
         String insertQueryStatement = "SELECT SUM(l.vertical) FROM LiftRides r LEFT JOIN Lifts l " +
                 "ON (r.resortID = l.resortID AND r.liftID = l.liftID) " +
                 "WHERE (r.skierID = ? AND r.resortID = ?)";
+
 
         try {
             conn = dataSource.getConnection();

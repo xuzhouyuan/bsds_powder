@@ -10,7 +10,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.ServletContext;
 
 public class PowderServlet extends javax.servlet.http.HttpServlet {
-    // TODO: connect to db
 
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws IOException {
         ServletContext context = getServletContext();
@@ -159,14 +158,23 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
                                         String skierID) throws IOException {
         // TODO: validate query
         // verify and unpack request body to json, then write to db through dao
-        BufferedReader reader = req.getReader();
-        if (!reader.ready()) {
+        String queryString = req.getQueryString();
+        System.out.println(queryString);
+        String[] params = queryString.split("&");
+        String resortID = "";
+        for (String parameter:params) {
+            String[] pair = parameter.split("=");
+            // according to swagger
+            if (pair[0].equals("resort")) {
+                resortID = pair[1];
+            }
+        }
+        System.out.println("----resortID:" + resortID);
+        if (resortID.isEmpty()) {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             res.getWriter().write("{\"message\":\"Invalid Inputs\"}");
             return;
         }
-        String resortID = reader.readLine();
-        System.out.println(resortID);
 
         LiftRideDao dao = new LiftRideDao();
         int totalVert;

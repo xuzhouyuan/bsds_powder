@@ -8,8 +8,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class PowderClient {
+    private static String[] ApiNames = new String[]{
+            "writeNewLiftRide",
+            "getSkierDayVertical",
+            "getSkierResortTotals"
+    };
+
     private final String SCHEME = "http://";
-    private String serverPath = SCHEME + "34.223.113.123:8080/powder/";
+    private String serverPath = SCHEME + "localhost:8080/powder/";//"54.212.26.239:8080/powder/";
     private int maxThreads = 256;
     private int numSkiers = 20000;
     private int numLifts = 40;
@@ -25,17 +31,24 @@ public class PowderClient {
     }
 
     public static void main(String[] args) throws InterruptedException, IOException {
+        // clear database
+
+
         // initialize client
         PowderClient client = new PowderClient();
-        BlockingQueue<String> latencyQueue = new LinkedBlockingQueue<>();
-        client.runPhases(latencyQueue);
+        Map<String, BlockingQueue> latencyQueues = new HashMap<>();
+        for (String ApiName: ApiNames) {
+            latencyQueues.put(ApiName, new LinkedBlockingDeque());
+        }
+        client.runPhases(latencyQueues);
+        client.processLatencyStat(latencyQueues);
         System.out.println("Done");
     }
 
     /**
      * @return The total number of requests made
      */
-    public int runPhases(BlockingQueue<String> latencyQueue) throws InterruptedException, IOException {
+    public int runPhases(Map<String, BlockingQueue> latencyQueues) throws InterruptedException, IOException {
         int numThreadsPhase1 = maxThreads / 4;
         int numThreadsPhase2 = maxThreads;
         int numThreadsPhase3 = maxThreads / 4;
@@ -52,13 +65,13 @@ public class PowderClient {
         RequestCount requestCountPhase3 = new RequestCount();
 
         LoadGenerator phase1 = new LoadGenerator(executor, serverPath, phase1Latches, requestCountPhase1,
-                latencyQueue, numThreadsPhase1, resortID, skiDay, numLifts,
+                latencyQueues, numThreadsPhase1, resortID, skiDay, numLifts,
                 0, numSkiers, 1, 91);
         LoadGenerator phase2 = new LoadGenerator(executor, serverPath, phase2Latches, requestCountPhase2,
-                latencyQueue, numThreadsPhase2, resortID, skiDay, numLifts,
+                latencyQueues, numThreadsPhase2, resortID, skiDay, numLifts,
                 0, numSkiers, 91, 361);
         LoadGenerator phase3 = new LoadGenerator(executor, serverPath, phase3Latches, requestCountPhase3,
-                latencyQueue, numThreadsPhase3, resortID, skiDay, numLifts,
+                latencyQueues, numThreadsPhase3, resortID, skiDay, numLifts,
                 0, numSkiers, 361, 421, true);
 
         logger.info(this.getClass().getName() + " starts to run phases.");
@@ -90,57 +103,43 @@ public class PowderClient {
         System.out.println("Total run time (wall time): " + wallTime + " ms");
         float throughput = ((float)totalRequest / wallTime) * 1000;
         System.out.println("Throughput is: " + throughput + " req/sec");
-        processLatencyStat(latencyQueue);
         return totalRequest;
     }
 
-    private String[] processLatencyStat(BlockingQueue<String> latencyQueue) throws IOException {
+    private void processLatencyStat(Map<String, BlockingQueue> latencyQueues) throws IOException {
         // TODO: [in the future] create thread to write latencyQueue to csv file,
         //  process stats from file after completion.
-        List<Integer> latencyPOST = new ArrayList<>();
-        List<Integer> latencyGET = new ArrayList<>();
-        File csvOutputPOST = File.createTempFile("powder-client-request-latency-POST-", ".csv");
-        File csvOutputGET = File.createTempFile("powder-client-request-latency-GET-", ".csv");
-        System.out.println("POST latency entries stored at " + csvOutputPOST.getAbsolutePath());
-        System.out.println("GET latency entries stored at " + csvOutputGET.getAbsolutePath());
-        FileWriter writerPOST = new FileWriter(csvOutputPOST.getAbsolutePath());
-        FileWriter writerGET = new FileWriter(csvOutputGET.getAbsolutePath());
-        while (!latencyQueue.isEmpty()) {
-            String entryString = latencyQueue.poll();
-            String[] entry = entryString.split(",");
-            if (entry[1].equals("POST")) {
-                writerPOST.write(entryString+"\n");
-                latencyPOST.add(Integer.parseInt(entry[2]));
-            } else if (entry[1].equals("GET")) {
-                writerGET.write(entryString+"\n");
-                latencyGET.add(Integer.parseInt(entry[2]));
+
+
+        //TODO: modify to process per api
+        for (String ApiName: ApiNames) {
+            BlockingQueue<String> latencyQueue = latencyQueues.get(ApiName);
+            List<Integer> latency = new ArrayList<>();
+            File csvOutput = File.createTempFile("powder-client-latency-" + ApiName + "-",
+                    ".csv");
+            System.out.println(ApiName + " latency entries stored at " + csvOutput.getAbsolutePath());
+            FileWriter writer = new FileWriter(csvOutput.getAbsolutePath());
+            while (!latencyQueue.isEmpty()) {
+                String entryString = latencyQueue.poll();
+                String[] entry = entryString.split(",");
+                // writing to csv
+                writer.write(entryString+"\n");
+                latency.add(Integer.parseInt(entry[1]));
             }
+            writer.close();
+            Collections.sort(latency);
+
+            System.out.println("Latency (ms) statistics for " + ApiName + ": ");
+            System.out.print("  MEAN  : ");
+            System.out.println(findMean(latency));
+            System.out.print("  MEDIAN: ");
+            System.out.println(findMedian(latency));
+            System.out.print("  P99   : ");
+            System.out.println(findP99(latency));
+            System.out.print("  MAX   : ");
+            System.out.println(latency.get(latency.size()-1));
         }
-        writerPOST.close();
-        writerGET.close();
-        Collections.sort(latencyPOST);
-        Collections.sort(latencyGET);
-
-        System.out.println("Latency (ms) statistics for POST: ");
-        System.out.print("  MEAN  : ");
-        System.out.println(findMean(latencyPOST));
-        System.out.print("  MEDIAN: ");
-        System.out.println(findMedian(latencyPOST));
-        System.out.print("  P99   : ");
-        System.out.println(findP99(latencyPOST));
-        System.out.print("  MAX   : ");
-        System.out.println(latencyPOST.get(latencyPOST.size()-1));
-
-        System.out.println("Latency (ms) statistics for GET: ");
-        System.out.print("  MEAN  : ");
-        System.out.println(findMean(latencyGET));
-        System.out.print("  MEDIAN: ");
-        System.out.println(findMedian(latencyGET));
-        System.out.print("  P99   : ");
-        System.out.println(findP99(latencyGET));
-        System.out.print("  MAX   : ");
-        System.out.println(latencyGET.get(latencyGET.size()-1));
-        return new String[] {csvOutputPOST.getAbsolutePath(), csvOutputGET.getAbsolutePath()};
+        return;
     }
 
     private int findMedian(List<Integer> list) {
