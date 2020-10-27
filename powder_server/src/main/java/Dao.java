@@ -8,9 +8,11 @@ import java.sql.SQLException;
 
 public class Dao {
     protected static BasicDataSource dataSource;
+    protected static final int maxConnection = 600;
 
     public Dao() {
        dataSource = DBCPDataSource.getDataSource();
+       dataSource.setMaxTotal(maxConnection);
     }
 }
 
@@ -19,7 +21,7 @@ class LiftRideDao extends Dao {
         super();
     }
 
-    public void writeNewLiftRide(LiftRide ride) throws SQLException {
+    public void writeNewLiftRide(LiftRide ride) throws SQLException, ConnectionLeakException {
         Connection conn = null;
         PreparedStatement preparedStatement = null;
         String insertQueryStatement = "INSERT INTO LiftRides " +
@@ -51,10 +53,13 @@ class LiftRideDao extends Dao {
                 se.printStackTrace();
             }
         }
+        if (!conn.isClosed()) {
+            throw new ConnectionLeakException();
+        }
         return;
     }
 
-    public int getSkierDayVertical(String resortID, String dayID, String skierID) throws SQLException {
+    public int getSkierDayVertical(String resortID, String dayID, String skierID) throws SQLException, ConnectionLeakException {
         Connection conn = null;
         PreparedStatement preparedStatement = null;
         ResultSet resultSet;
@@ -90,10 +95,13 @@ class LiftRideDao extends Dao {
                 se.printStackTrace();
             }
         }
+        if (!conn.isClosed()) {
+            throw new ConnectionLeakException();
+        }
         return totalVert;
     }
 
-    public int getSkierResortTotals(String skierID, String resortID) throws SQLException {
+    public int getSkierResortTotals(String skierID, String resortID) throws SQLException, ConnectionLeakException {
         Connection conn = null;
         PreparedStatement preparedStatement = null;
         ResultSet resultSet;
@@ -128,6 +136,9 @@ class LiftRideDao extends Dao {
             } catch (SQLException se) {
                 se.printStackTrace();
             }
+        }
+        if (!conn.isClosed()) {
+            throw new ConnectionLeakException();
         }
         return totalVert;
     }

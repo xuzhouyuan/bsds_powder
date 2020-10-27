@@ -1,9 +1,13 @@
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
 
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -15,7 +19,7 @@ public class PowderClient {
     };
 
     private final String SCHEME = "http://";
-    private String serverPath = SCHEME + "localhost:8080/powder/";//"54.212.26.239:8080/powder/";
+    private String serverPath = SCHEME + "localhost:8080/powder";//"54.212.26.239:8080/powder";
     private int maxThreads = 256;
     private int numSkiers = 20000;
     private int numLifts = 40;
@@ -32,7 +36,28 @@ public class PowderClient {
 
     public static void main(String[] args) throws InterruptedException, IOException {
         // clear database
-
+        BasicDataSource dataSource = DBCPDataSource.getDataSource();
+        Connection conn = null;
+        PreparedStatement preparedStatement = null;
+        String insertQueryStatement = "TRUNCATE powder_run.LiftRides";
+        try {
+            conn = dataSource.getConnection();
+            preparedStatement = conn.prepareStatement(insertQueryStatement);
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.close();
+                }
+                if (preparedStatement != null) {
+                    preparedStatement.close();
+                }
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
 
         // initialize client
         PowderClient client = new PowderClient();

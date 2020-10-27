@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.ServletContext;
 
 public class PowderServlet extends javax.servlet.http.HttpServlet {
+    private LiftRideDao dao = new LiftRideDao();
 
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws IOException {
         ServletContext context = getServletContext();
@@ -114,12 +115,14 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             return;
         }
 
-        LiftRideDao dao = new LiftRideDao();
+//        LiftRideDao dao = new LiftRideDao();
         try {
             dao.writeNewLiftRide(ride);
         } catch (SQLException e) {
             res.setStatus(HttpServletResponse.SC_ACCEPTED);
             return;
+        } catch (ConnectionLeakException e) {
+            e.printStackTrace();
         }
 
         res.setStatus(HttpServletResponse.SC_CREATED);
@@ -138,14 +141,16 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             return;
         }
 
-        LiftRideDao dao = new LiftRideDao();
-        int totalVert;
+//        LiftRideDao dao = new LiftRideDao();
+        int totalVert = -1;
         try {
             totalVert = dao.getSkierDayVertical(resortID, dayID, skierID);
         } catch (SQLException e) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
             res.getWriter().write( "{\"message\":\"Data Not Found\"}");
             return;
+        } catch (ConnectionLeakException e) {
+            e.printStackTrace();
         }
 
         res.setStatus(HttpServletResponse.SC_OK);
@@ -159,7 +164,6 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
         // TODO: validate query
         // verify and unpack request body to json, then write to db through dao
         String queryString = req.getQueryString();
-        System.out.println(queryString);
         String[] params = queryString.split("&");
         String resortID = "";
         for (String parameter:params) {
@@ -169,21 +173,22 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
                 resortID = pair[1];
             }
         }
-        System.out.println("----resortID:" + resortID);
         if (resortID.isEmpty()) {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             res.getWriter().write("{\"message\":\"Invalid Inputs\"}");
             return;
         }
 
-        LiftRideDao dao = new LiftRideDao();
-        int totalVert;
+//        LiftRideDao dao = new LiftRideDao();
+        int totalVert = -1;
         try {
             totalVert = dao.getSkierResortTotals(skierID, resortID);
         } catch (SQLException e) {
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
             res.getWriter().write("{\"message\":\"Data Not Found\"}");
             return;
+        } catch (ConnectionLeakException e) {
+            e.printStackTrace();
         }
 
         res.setStatus(HttpServletResponse.SC_OK);

@@ -113,7 +113,7 @@ class LoadWorker implements Runnable {
     protected int startSkierID, endSkierID;
     protected int startMinute, endMinute;
 
-    protected int numPOST = 100;
+    protected int numPOST = 1000;
     protected int numGET = 5;
 
     public LoadWorker(List<CountDownLatch> latches, String serverPath, RequestCount requestCount,
