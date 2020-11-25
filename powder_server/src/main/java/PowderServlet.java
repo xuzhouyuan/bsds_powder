@@ -58,7 +58,11 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             return;
         }
 
-        if (urlParts[1].equals("resort")) {
+        if (urlParts[1].equals("health_check")) {
+            res.setStatus(HttpServletResponse.SC_OK);
+            return;
+        }
+        else if (urlParts[1].equals("resort")) {
             if (urlParts.length == 4
                     && urlParts[2].equals("day")
                     && urlParts[3].equals("top10vert")
@@ -115,15 +119,7 @@ public class PowderServlet extends javax.servlet.http.HttpServlet {
             return;
         }
 
-//        LiftRideDao dao = new LiftRideDao();
-        try {
-            dao.writeNewLiftRide(ride);
-        } catch (SQLException e) {
-            res.setStatus(HttpServletResponse.SC_ACCEPTED);
-            return;
-        } catch (ConnectionLeakException e) {
-            e.printStackTrace();
-        }
+        dao.writeNewLiftRide(ride);
 
         res.setStatus(HttpServletResponse.SC_CREATED);
         return;

@@ -1,3 +1,11 @@
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.sqs.AmazonSQS;
+import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
+import com.amazonaws.services.sqs.model.SendMessageRequest;
+import com.google.gson.Gson;
 import io.swagger.client.model.LiftRide;
 import org.apache.commons.dbcp2.BasicDataSource;
 
@@ -17,45 +25,28 @@ public class Dao {
 }
 
 class LiftRideDao extends Dao {
+    private static String queueEndPoint = System.getProperty("SQS_ENDPOINT");
+    private static AWSCredentials credentials = new BasicAWSCredentials(
+            System.getProperty("ADMIN_ACCESS_KEY"),
+            System.getProperty("ADMIN_SECRET_KEY")
+    );
+    private static AmazonSQS sqs = AmazonSQSClientBuilder.standard()
+            .withCredentials(new AWSStaticCredentialsProvider(credentials))
+            .withRegion(Regions.US_WEST_2)
+            .build();
+
     public LiftRideDao() {
         super();
     }
 
-    public void writeNewLiftRide(LiftRide ride) throws SQLException, ConnectionLeakException {
-        Connection conn = null;
-        PreparedStatement preparedStatement = null;
-        String insertQueryStatement = "INSERT INTO LiftRides " +
-                "(skierID, dayID, time, resortID, liftID) " +
-                "VALUES (?,?,?,?,?)";
-        try {
-            conn = dataSource.getConnection();
-            preparedStatement = conn.prepareStatement(insertQueryStatement);
-            preparedStatement.setString(1, ride.getSkierID());
-            preparedStatement.setString(2, ride.getDayID());
-            preparedStatement.setString(3, ride.getTime());
-            preparedStatement.setString(4, ride.getResortID());
-            preparedStatement.setString(5, ride.getLiftID());
+    public void writeNewLiftRide(LiftRide ride) {
+        Gson gson = new Gson();
+        SendMessageRequest sendMessageStandardQueue = new SendMessageRequest()
+                .withQueueUrl(queueEndPoint)
+                .withMessageBody(gson.toJson(ride, LiftRide.class));
 
-            // execute insert SQL statement
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            throw e;
-        } finally {
-            try {
-                if (conn != null) {
-                    conn.close();
-                }
-                if (preparedStatement != null) {
-                    preparedStatement.close();
-                }
-            } catch (SQLException se) {
-                se.printStackTrace();
-            }
-        }
-        if (!conn.isClosed()) {
-            throw new ConnectionLeakException();
-        }
+        sqs.sendMessage(sendMessageStandardQueue);
+
         return;
     }
 

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>edu.northeastern.cs6650</groupId>
-    <artifactId>powder_server</artifactId>
+    <artifactId>powder_queueConsumer</artifactId>
     <version>1.0</version>
     <properties>
         <compilerVersion>1.8</compilerVersion>
@@ -26,14 +26,6 @@
     </build>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api -->
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>4.0.1</version>
-            <scope>provided</scope>
-        </dependency>
-
         <dependency>
             <groupId>io.swagger</groupId>
             <artifactId>swagger-java-client</artifactId>
@@ -69,7 +61,5 @@
             <version>1.11.907</version>
         </dependency>
 
-
     </dependencies>
-
 </project>

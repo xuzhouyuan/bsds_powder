@@ -19,7 +19,7 @@ public class PowderClient {
     };
 
     private final String SCHEME = "http://";
-    private String serverPath = SCHEME + "as2lb-2009629326.us-west-2.elb.amazonaws.com:8080/powder";//"54.212.26.239:8080/powder";
+    private String serverPath = SCHEME + "54.213.238.147:8080/powder";
     private int maxThreads = 256;
     private int numSkiers = 20000;
     private int numLifts = 40;
